@@ -1,0 +1,279 @@
+// This file is based on the processing example file for the koch curve and heavily edited by Lee Trent for PROMYS 2020
+
+Fractal f;
+
+void setup() {
+  size(1000,1000);
+  frameRate(1);  // Animate slowly
+  // Set up original lines
+  ArrayList<PVector> originalPoints =new ArrayList<PVector>();
+  // The nine original points make a square.
+  // What happens if you remove original lines? Or use totally new ones? 
+  // What lines could you use to make a standard koch snowflake?
+  // Use // to "comment out" a line without deleting it in case you change your mind
+  originalPoints.add(new PVector(3*width/10,7*height/10)); // USE THESE TWO FOR A SINGLE STRAIGHT LINE. USE THESE TO MAKE THE TWINDRAGON.
+  originalPoints.add(new PVector(3*width/10,5*height/10));
+  originalPoints.add(new PVector(3*width/10,3*height/10)); // USE THESE TO MAKE THE TWINDRAGON.
+  originalPoints.add(new PVector(5*width/10,3*height/10));
+  originalPoints.add(new PVector(7*width/10,3*height/10)); // USE THESE TWO FOR A SINGLE STRAIGHT LINE. USE THESE TO MAKE THE TWINDRAGON.
+  originalPoints.add(new PVector(7*width/10,5*height/10));
+  originalPoints.add(new PVector(7*width/10,7*height/10)); // USE THESE TO MAKE THE TWINDRAGON.
+  originalPoints.add(new PVector(5*width/10,7*height/10));
+  originalPoints.add(new PVector(3*width/10,7*height/10)); // USE THESE TO MAKE THE TWINDRAGON.
+  
+  f = new Fractal(originalPoints);
+}
+
+void draw() {
+  background(0);
+  // Draws the fractal
+  f.render();
+  // Iterate
+  f.nextLevel();
+  // Number of iterations, change this if you want but don't make it too high or things will run very slowly.
+  // The number of lines is growing exponentially!
+  if (f.getCount() > 10) {
+    f.restart();
+  }
+  // Choose which frames to save
+  if (f.getCount() == 10 ) {
+     saveFrame("promys-fractal-##.png"); // change the name to prevent overwriting other fractals!
+  }
+}
+
+
+// Fractal
+// A class to manage the list of line segments in the fractal pattern
+
+class Fractal {
+  ArrayList<PVector> originalPoints;
+  PVector start;       // A PVector for the start
+  PVector end;         // A PVector for the end
+  ArrayList<fractalLine> lines;   // A list to keep track of all the lines
+  int count;
+  
+  Fractal(ArrayList<PVector> originalPoints) {
+    this.originalPoints = originalPoints;
+    start = originalPoints.get(0);
+    end = originalPoints.get(originalPoints.size()-1);
+    lines = new ArrayList<fractalLine>();
+    restart();
+  }
+
+  void nextLevel() {  
+    // For every line that is in the arraylist
+    // iterate as indicated
+    // OPTIONS:
+    
+    // Add your own options in the sections below!
+    // lines = iterateKoch(lines);
+     lines = iterateDragon(lines);
+    // lines = iterateCardio(lines);
+
+
+    // use if statements to make hybrid curves
+    //if (f.getCount() %2 == 0) {
+    //if (f.getCount() < 5) {
+    //  lines = iterateDragon(lines);
+    //} else {
+    //  lines = iterateKoch(lines);
+    //}
+    
+    count++;
+  }
+
+  void restart() { 
+    count = 0;      // Reset count
+    lines.clear();  // Empty the array list
+    for(int i = 0; i < originalPoints.size()-1; i++) {
+      lines.add(new fractalLine(originalPoints.get(i),originalPoints.get(i+1)));
+    }
+  }
+  
+  int getCount() {
+    return count;
+  }
+  
+  // This is easy, just draw all the lines
+  void render() {
+    for(fractalLine l : lines) {
+      l.display();
+    }
+  }
+
+    ArrayList iterateKoch(ArrayList<fractalLine> before) {
+    ArrayList now = new ArrayList<fractalLine>();    // Create emtpy list
+    for(fractalLine l : before) {
+      // Calculate new PVectors
+      PVector a = l.start();                 
+      PVector b = l.kochLeft();
+      PVector c = l.kochMiddle();
+      PVector d = l.kochRight();
+      PVector e = l.end();
+      // Make line segments between all the PVectors and add them
+      now.add(new fractalLine(a,b));
+      now.add(new fractalLine(b,c));
+      now.add(new fractalLine(c,d));
+      now.add(new fractalLine(d,e));
+    }
+    return now;
+  }
+  
+    ArrayList iterateCardio(ArrayList<fractalLine> before) {
+    ArrayList now = new ArrayList<fractalLine>();    // Create emtpy list
+    for(fractalLine l : before) {
+      // Calculate new PVectors
+      PVector a = l.start();                 
+      PVector b = l.cardioLeft();
+      PVector c = l.cardioUp();
+      PVector d = l.cardioDown();
+      PVector e = l.cardioRight();
+      PVector f = l.end();
+      // Make line segments between all the PVectors and add them
+      now.add(new fractalLine(a,b));
+      now.add(new fractalLine(b,c));
+      now.add(new fractalLine(c,d));
+      now.add(new fractalLine(d,e));
+      now.add(new fractalLine(e,f));      
+    }
+    return now;
+  }
+  
+  ArrayList iterateDragon(ArrayList<fractalLine> before) {
+    ArrayList now = new ArrayList<fractalLine>();
+    for(int i = 0; i < before.size(); i++) {
+      // Calculate new PVectors
+      fractalLine l = before.get(i);
+      PVector a = l.start(); 
+      PVector bOdd = l.dragonMiddleOdd();   
+      PVector bEven = l.dragonMiddleEven();      
+      PVector c = l.end();
+      
+      // Make line segments between all the PVectors and add them
+      if (i %2 == 0) {
+      now.add(new fractalLine(a,bEven));
+      now.add(new fractalLine(bEven,c)); 
+      } else {
+      now.add(new fractalLine(a,bOdd));
+      now.add(new fractalLine(bOdd,c)); }
+    }
+    return now;
+  }
+
+}
+
+// fractalLine
+// A class to describe one line segment in the fractal
+// Includes methods to calculate midPVectors along the line according to the dragon algorithm
+
+class fractalLine {
+
+  // a is the "left" PVector and 
+  // b is the "right PVector
+  PVector a;
+  PVector b;
+
+  fractalLine(PVector start, PVector end) {
+    a = start.copy();
+    b = end.copy();
+  }
+
+  void display() {
+    colorMode(HSB, 360, 100, 100);
+    stroke((300+30*f.getCount()) %360,75,75); //change these color settings if you want
+    line(a.x, a.y, b.x, b.y);
+  }
+
+  PVector start() {
+    return a.copy();
+  }
+
+  PVector end() {
+    return b.copy();
+  }
+
+  PVector dragonMiddleEven() {
+    PVector v = PVector.sub(b, a);
+    v.div((float) Math.sqrt(2));
+    
+    v.rotate(-radians(45)); // what happens if you change this angle?
+    v.add(a);
+    return v;
+  }  
+  
+  PVector dragonMiddleOdd() {
+    PVector v = PVector.sub(b, a);
+    v.div((float) Math.sqrt(2));
+    
+    v.rotate(radians(45)); // what happens if you change this angle?
+    v.add(a);
+    return v;
+  }  
+  
+  PVector kochLeft() {
+    PVector v = PVector.sub(b, a);
+    v.div(3);
+    v.add(a);
+    return v;
+  }    
+
+  PVector kochMiddle() {
+    PVector v = PVector.sub(b, a);
+    v.div(3);
+    
+    PVector p = a.copy();
+    p.add(v);
+    
+    v.rotate(-radians(60)); // what happens if you change this angle?
+    p.add(v);
+    
+    return p;
+  }    
+
+  PVector kochRight() {
+    PVector v = PVector.sub(a, b);
+    v.div(3);
+    v.add(b);
+    return v;
+  }
+  
+  PVector cardioLeft() {
+    PVector v = PVector.sub(b, a);
+    v.div(3);
+    v.add(a);
+    return v;
+  }    
+
+  PVector cardioUp() {
+    PVector v = PVector.sub(b, a);
+    v.div(3);
+    
+    PVector p = a.copy();
+    p.add(v);
+    
+    v.rotate(-radians(60)); // what happens if you change this angle?
+    p.add(v);
+    
+    return p;
+  }    
+  
+  PVector cardioDown() {
+    PVector v = PVector.sub(b, a);
+    v.div(3);
+    
+    PVector p = a.copy();
+    p.add(v);
+    
+    v.rotate(radians(60)); // what happens if you change this angle?
+    p.add(v);
+    
+    return p;
+  }    
+
+  PVector cardioRight() {
+    PVector v = PVector.sub(a, b);
+    v.div(3);
+    v.add(b);
+    return v;
+  }  
+}
